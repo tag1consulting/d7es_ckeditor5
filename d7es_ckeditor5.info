@@ -1,0 +1,5 @@
+name           = d7es CKEditor5
+description    = "Enables CKEditor (WYSIWYG HTML editor) 5 for use instead of plain text fields."
+core           = 7.x
+package        = User interface
+dependencies[] = libraries
