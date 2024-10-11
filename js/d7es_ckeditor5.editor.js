@@ -1,36 +1,13 @@
-import {
-  Alignment,
-  BlockQuote,
-  Bold,
-  ClassicEditor,
-  Code,
-  Essentials,
-  FindAndReplace,
-  Italic,
-  Font,
-  Paragraph,
-  Link,
-  List,
-  Underline,
-  Strikethrough,
-  Table,
-  HorizontalLine,
-  Heading,
-  SourceEditing,
-  GeneralHtmlSupport,
-} from 'ckeditor5';
+import { ClassicEditor, SourceEditing, Essentials } from 'ckeditor5';
 
-// @todo: maybe this should be done server side using importmap.
 async function importPlugins(plugins) {
-  const importedPlugins = {
-    'plugins': [],
-    'buttons': [],
-  };
-  for (let i = 0; i < plugins.length; i++) {
-    const module = await import(plugins[i].path);
-    importedPlugins.plugins.push(module[plugins[0].name]);
-    if (plugins[0].button) {
-      importedPlugins.buttons.push(plugins[0].button);
+  const importedPlugins = [];
+  const keys = Object.keys(plugins);
+  for (let i = 0; i < keys.length; i++) {
+    const moduleName = keys[i];
+    const module = await import(moduleName);
+    for (let j = 0; j < plugins[moduleName].length; j++) {
+      importedPlugins.push(module[plugins[moduleName][j]]);
     }
   }
   return importedPlugins;
@@ -47,29 +24,16 @@ async function importPlugins(plugins) {
       if (!document.body.classList.contains('d7es-ckeditor5-processed')) {
         document.body.classList.add('d7es-ckeditor5-processed');
 
-        importPlugins(settings.d7es_ckeditor5.plugins).then((importedPlugins) => {
-          /* @todo: should be a configuration with UI */
-          const plugins = [...importedPlugins.plugins, ...[
-            Essentials,
-            Bold,
-            Italic,
-            Underline,
-            Strikethrough,
-            Font,
-            Paragraph,
-            Alignment,
-            BlockQuote,
-            Code,
-            FindAndReplace,
-            Link,
-            List,
-            Table,
-            HorizontalLine,
-            Heading,
-            SourceEditing,
-            GeneralHtmlSupport,
-          ]];
+        const toolbar = ['undo', 'redo'];
 
+        settings.d7es_ckeditor5.filtered_html.buttons.forEach(buttons => {
+          toolbar.push('|');
+          buttons.forEach(button => {
+            toolbar.push(button);
+          });
+        });
+
+        importPlugins(settings.d7es_ckeditor5.filtered_html.plugins).then(plugins => {
           /**
            * Missing features:
            *   - Unlink button (you should use the link one)
@@ -79,6 +43,7 @@ async function importPlugins(plugins) {
             ClassicEditor
               .create(editor, {
                 htmlSupport: {
+                  /* @todo; allowed tags configuration */
                   allow: [
                     {
                       name: /.*/,
@@ -89,32 +54,10 @@ async function importPlugins(plugins) {
                   ],
                   disallow: [ /* HTML features to disallow. */ ]
                 },
-                plugins: plugins,
+                plugins: [...plugins, ...[Essentials, SourceEditing]],
                 /* @todo: should be a configuration with UI */
-                toolbar: [...[
-                  'undo',
-                  'redo',
-                  '|',
-                  'heading',
-                  '|',
-                  'bold',
-                  'italic',
-                  'underline',
-                  'strikethrough',
-                  'code',
-                  'blockQuote',
-                  '|',
-                  'link',
-                  '|',
-                  'numberedList',
-                  'bulletedList',
-                  'alignment',
-                  'insertTable',
-                  'horizontalLine',
-                  '|',
-                  'sourceEditing',
-                ], ...importedPlugins.buttons],
-                licenseKey: settings.ckeditor5?.licenseKey,
+                toolbar: [...toolbar, ...['sourceEditing']],
+                licenseKey: settings.d7es_ckeditor5?.licenseKey,
               })
               // Set the editor initial height.
               // @todo: make the height configurable.

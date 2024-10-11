@@ -28,47 +28,58 @@ function d7es_ckeditor5_pre_render_text_format($element): array {
     return $element;
   }
 
-  $settings = [];
-
-  $inited = &drupal_static('d7es_ckeditor5_inited', FALSE);
-  if (!$inited) {
-    $inited = TRUE;
-    $plugins = d7es_ckeditor5_load_plugins();
-    if ($plugins) {
-      foreach ($plugins as $plugin) {
-        $settings['plugins'][] = [
-          'name' => $plugin['name'],
-          'path' => url($plugin['path'] . '/plugin.js', ['absolute' => TRUE]),
-          'button' => $plugin['button'] ?? FALSE,
-        ];
-      }
-    }
+  // @todo: fix the settings duplication; init must be per element.
+  $init = &drupal_static('d7es_ckeditor5_inited', FALSE);
+  if ($init) {
+    return $element;
   }
 
-  unset($element['#resizable']);
-  $lib_path = libraries_get_path('ckeditor5');
+  $settings = variable_get('d7es_ckeditor5_settings', []);
 
-  // importmap shims
-  $element['##attached']['js'][] = libraries_get_path('es-module-shims') . '/es-module-shims.js';
+  $lib_path = libraries_get_path('ckeditor5');
 
   // CKEditor 5 CORE.
   $ckeditor_path = url($lib_path . '/ckeditor5/ckeditor5.js', ['absolute' => TRUE]);
   $ckeditor_dir = pathinfo($ckeditor_path)['dirname'];
 
-  $markup = <<<EOT
-<script type="importmap">
-  {
-    "imports": {
-      "ckeditor5": "{$ckeditor_path}",
-      "ckeditor5/": "{$ckeditor_dir}"
+  $importmaps = ['imports' => [
+    'ckeditor5' => $ckeditor_path,
+    'ckeditor5/' =>  $ckeditor_dir,
+  ]];
+
+  if (!$init) {
+    $init = TRUE;
+    $plugins = d7es_ckeditor5_load_plugins();
+    if ($plugins) {
+      foreach ($plugins as $plugin) {
+        $importmaps['imports'][$plugin['name']] = url($plugin['path']  . '/plugin.js', ['absolute' => TRUE]);
+        foreach ($settings as &$setting) {
+          $setting['plugins'][$plugin['name']][] = $plugin['name'];
+          if (isset($plugin['button'])) {
+            $setting['buttons'][][] = $plugin['button'];
+          }
+        }
+      }
     }
   }
+
+  unset($element['#resizable']);
+
+  // importmap shims
+  $element['##attached']['js'][] = libraries_get_path('es-module-shims') . '/es-module-shims.js';
+
+  $importmaps_content = json_encode($importmaps, JSON_UNESCAPED_SLASHES);
+
+  $markup = <<<EOT
+<script type="importmap">
+  {$importmaps_content}
 </script>
 EOT;
 
   $ckeditor_5_script = [
     '#type' => 'markup',
     '#markup' => $markup,
+    '#weight' => -100,
   ];
 
   drupal_add_html_head($ckeditor_5_script, 'ckeditor_5_script');
@@ -77,7 +88,7 @@ EOT;
   $element['#attached']['css'][] = $lib_path . '/ckeditor5/ckeditor5-content.css';
 
   // CKEditor 5 Premium features.
-  $license_key = variable_get('ckeditor5_license_key', NULL);
+  $license_key = variable_get('d7es_ckeditor5_license_key', NULL);
   if ($license_key) {
     // @todo: convert to module.
     $element['#attached']['js'][] = [
