@@ -1,55 +1,69 @@
 <?php
 
+use Drupal\d7es_ckeditor5\Profile;
+
 function d7es_ckeditor5_configuration_migrate() {
   $map = [
-    'Styles' => 'Heading',
-    'Bold' => 'Bold',
-    'Italic' => 'Italic',
-    'Underline' => 'Underline',
-    'Strike' => 'Strikethrough',
-    'CodeSnippet' => 'Code',
-    'Blockquote' => 'BlockQuote',
-    'Link' => 'Link',
-    'Unlink' => 'Link',
-    'Anchor' => 'Link',
-    'NumberedList' => 'List', // numberedList
-    'BulletedList' => 'List', // bulletedList
-    'JustifyCenter' => 'Alignment',
-    'JustifyLeft' => 'Alignment',
-    'JustifyRight' => 'Alignment',
-    'JustifyBlock' => 'Alignment',
-    'Table' => 'Table', // InsertTable
-    'HorizontalRule' => 'HorizontalLine',
+    'Format' => ['Heading', 'heading'],
+    'Bold' => ['Bold', 'bold'],
+    'Italic' => ['Italic', 'italic'],
+    'Underline' => ['Underline', 'underline'],
+    'Strike' => ['Strikethrough', 'strikethrough'],
+    'CodeSnippet' => ['Code', 'code'],
+    'Blockquote' => ['BlockQuote', 'blockQuote'],
+    'Link' => ['Link', 'link'],
+    'Unlink' => ['Link', 'link'],
+    'Anchor' => ['Link', 'link'],
+    'NumberedList' => ['List', 'numberedList'],
+    'BulletedList' => ['List', 'bulletedList'],
+    'JustifyCenter' => ['Alignment', 'alignment'],
+    'JustifyLeft', ['Alignment', 'alignment'],
+    'JustifyRight' => ['Alignment', 'alignment'],
+    'JustifyBlock', ['Alignment', 'alignment'],
+    'Table' => ['Table', 'insertTable'],
+    'HorizontalRule' => ['HorizontalLine', 'horizontalLine'],
   ];
 
   module_load_include('inc', 'ckeditor', 'includes/ckeditor.lib');
-  $configuration = [];
-  $added_modules = [];
-  $formats = filter_formats();
-  if (!empty($formats)) {
-    foreach ($formats as $format) {
-      $profile = ckeditor_get_profile($format->format);
+
+  $profiles = ckeditor_profile_load();
+  if (!empty($profiles)) {
+    foreach ($profiles as $profile) {
+      $configuration = [];
       if (!empty($profile->settings['toolbar'])) {
-        $profiles[$format->format] = $profile;
+        $id = drupal_html_id($profile->name);
         $toolbar = str_replace("'", '"', $profile->settings['toolbar']);
         $toolbar = trim($toolbar);
-        $toolbars_array = drupal_json_decode($toolbar, true);
+        $toolbars_array = drupal_json_decode($toolbar);
         if (!empty($toolbars_array)) {
           foreach ($toolbars_array as $group => $toolbar_items) {
-            foreach ($toolbar_items as $toolbar_item) {
-              if (isset($map[$toolbar_item])) {
-                if (!in_array($map[$toolbar_item], $added_modules)) {
-                  $added_modules[$map[$toolbar_item]] = $map[$toolbar_item];
-                  $configuration[$format->format]['plugins']['ckeditor5'][] = $map[$toolbar_item];
-                  $configuration[$format->format]['buttons'][$group][] = lcfirst(ucwords($map[$toolbar_item]));
+            if (is_array($toolbar_items)) {
+              foreach ($toolbar_items as $toolbar_item) {
+                if (isset($map[$toolbar_item])) {
+                  [$plugin, $button] = $map[$toolbar_item];
+                  $configuration['plugins']['ckeditor5'][] = $plugin;
+                  $configuration['buttons'][$group][] = $button;
                 }
               }
+            }
+          }
+
+          $configuration['plugins']['ckeditor5'] = array_values(array_unique($configuration['plugins']['ckeditor5']));
+          $configuration['buttons'] = array_values(array_map(fn($group) => array_values(array_unique($group)), $configuration['buttons']));
+          $ckeditor5_profile = new Profile($id);
+          $ckeditor5_profile->setConfiguration(['name' => $profile->name] + $configuration);
+          $ckeditor5_profile->save();
+
+          if (!empty($profile->input_formats)) {
+            foreach ($profile->input_formats as $format) {
+              db_merge('d7es_ckeditor5_input_format')
+                ->key(['id' => $id])
+                ->fields(['format' => $format])
+                ->execute();
             }
           }
         }
       }
     }
   }
-
-  variable_set('d7es_ckeditor5_settings', $configuration);
 }

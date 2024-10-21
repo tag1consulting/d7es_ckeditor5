@@ -1,5 +1,7 @@
 <?php
 
+use Drupal\d7es_ckeditor5\Profile;
+
 /**
  * @todo: implement plugins enable/disable.
  *
@@ -18,58 +20,100 @@ function d7es_ckeditor5_element_info_alter(&$types) {
   $types['text_format']['#pre_render'][] = 'd7es_ckeditor5_pre_render_text_format';
 }
 
+function d7es_ckeditor5_load_by_field($field, $format) {
+  if (is_array($format)) {
+    $format_arr = $format;
+    $format = isset($format_arr['#value']) ? $format_arr['#value'] : $format_arr['#default_value'];
+  }
+
+  if (!isset($field['#id'])) {
+    return $field;
+  }
+
+  $field['#attributes']['d7es-ckeditor5-enabled'] = TRUE;
+  unset($field['#resizable']);
+
+  $field['#attached']['js'][] = ['type' => 'setting', 'data' => ['d7es_ckeditor5' => [
+    'textarea_default_format' => [$field['#name'] => $format],
+    'timestamp' => variable_get('css_js_query_string', '0')
+  ]]];
+
+  return $field;
+}
+
 /**
  * @param $element
  *
  * @return array
  */
 function d7es_ckeditor5_pre_render_text_format($element): array {
+  $init = &drupal_static(__FUNCTION__, FALSE);
+
   if (!isset($element['#format'])) {
     return $element;
   }
 
-  // @todo: fix the settings duplication; init must be per element.
-  $init = &drupal_static('d7es_ckeditor5_inited', FALSE);
+  if (isset($element['value'])) {
+    if (!isset($element['format'])) {
+      return $element;
+    }
+    if (isset($element['summary'])) {
+      $element['value'] = d7es_ckeditor5_load_by_field($element['value'], $element['format']['format'], TRUE, $element['summary']['#id']);
+      $element['summary'] = d7es_ckeditor5_load_by_field($element['summary'], $element['format']['format'], FALSE);
+    }
+    else {
+      $element['value'] = d7es_ckeditor5_load_by_field($element['value'], $element['format']['format']);
+    }
+  }
+  else {
+    $element = d7es_ckeditor5_load_by_field($element, $element['#format']);
+  }
+
   if ($init) {
     return $element;
   }
 
-  $settings = variable_get('d7es_ckeditor5_settings', []);
+  $init = TRUE;
+
+  // Global CKEditor initialization,
+  $formats = d7es_ckeditor5_get_formats();
+
+  if (empty($formats)) {
+    return $element;
+  }
+
+  $settings = [];
+  foreach ($formats as $id => $format) {
+    $profile = new Profile($id);
+    $configuration = $profile->getConfiguration();
+
+    if (empty($configuration)) {
+      continue;
+    }
+    $settings[$format] = $configuration;
+  }
 
   $lib_path = libraries_get_path('ckeditor5');
 
+  // importmap shims
+  $element['#attached']['js'][] = libraries_get_path('es-module-shims') . '/es-module-shims.js';
+
   // CKEditor 5 CORE.
   $ckeditor_path = url($lib_path . '/ckeditor5/ckeditor5.js', ['absolute' => TRUE]);
-  $ckeditor_dir = pathinfo($ckeditor_path)['dirname'];
-
   $importmaps = ['imports' => [
     'ckeditor5' => $ckeditor_path,
-    'ckeditor5/' =>  $ckeditor_dir,
   ]];
 
-  if (!$init) {
-    $init = TRUE;
-    $plugins = d7es_ckeditor5_load_plugins();
-    if ($plugins) {
-      foreach ($plugins as $plugin) {
-        $importmaps['imports'][$plugin['name']] = url($plugin['path']  . '/plugin.js', ['absolute' => TRUE]);
-        foreach ($settings as &$setting) {
-          $setting['plugins'][$plugin['name']][] = $plugin['name'];
-          if (isset($plugin['button'])) {
-            $setting['buttons'][][] = $plugin['button'];
-          }
-        }
-      }
+  // Extra libraries.
+  $plugins = d7es_ckeditor5_load_plugins();
+  if ($plugins) {
+    foreach ($plugins as $plugin) {
+      $importmaps['imports'][$plugin['name']] = url($plugin['path']  . '/plugin.js', ['absolute' => TRUE]);
     }
   }
-
-  unset($element['#resizable']);
-
-  // importmap shims
-  $element['##attached']['js'][] = libraries_get_path('es-module-shims') . '/es-module-shims.js';
-
   $importmaps_content = json_encode($importmaps, JSON_UNESCAPED_SLASHES);
 
+  // Add importmaps.
   $markup = <<<EOT
 <script type="importmap">
   {$importmaps_content}
@@ -106,6 +150,7 @@ EOT;
   // Drupal bridge.
   d7es_ckeditor5_attach_module(drupal_get_path('module', 'd7es_ckeditor5') . '/js/d7es_ckeditor5.editor.js');
 
+  // Global settings
   $element['#attached']['js'][] = ['type' => 'setting', 'data' => ['d7es_ckeditor5' => $settings]];
 
   return $element;
@@ -136,10 +181,49 @@ function d7es_ckeditor5_attach_module($path) {
 function d7es_ckeditor5_d7es_ckeditor5_plugins(): array {
   $plugins['Note'] = [
     'name' => 'Note',
-    'desc' => nt('Note CKEditor5 plugin.'),
+    'desc' => t('Note CKEditor5 plugin.'),
     'path' => drupal_get_path('module', 'd7es_ckeditor5') . '/plugins/note',
-    'button' => 'note'
+    'button' => 'note',
   ];
 
   return $plugins;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function d7es_ckeditor5_permission() {
+  return [
+    'administer ckeditor5 configuration' => [
+      'title' => t('Administer ckeditor5 configuration'),
+      'description' => t('Administer ckeditor5 configuration'),
+    ],
+  ];
+}
+
+/**
+ * Implements hook_menu().
+ */
+function d7es_ckeditor5_menu() {
+  $items = [];
+
+  $items['admin/config/content/ckeditor5'] = [
+    'title' => 'CKEditor5 configuration',
+    'description' => 'Manage CKEditor 5 configuration.',
+    'access arguments' => ['administer ckeditor5 configuration'],
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['d7es_ckeditor5_configuration_form'],
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'includes/d7es_ckeditor5.admin.inc',
+    'file path' => drupal_get_path('module', 'd7es_ckeditor5'),
+  ];
+
+  return $items;
+}
+
+function d7es_ckeditor5_get_formats() {
+  return db_select('d7es_ckeditor5_input_format', 'dcif')
+    ->fields('dcif', ['id', 'format'])
+    ->execute()
+    ->fetchAllKeyed();
 }
