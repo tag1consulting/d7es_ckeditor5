@@ -1,0 +1,107 @@
+<?php
+
+/**
+ * Implementation of hook_install().
+ */
+
+/**
+ * Implements hook_install().
+ */
+function d7es_ckeditor5_install() {
+  // Insert default input formats to profiles
+  db_insert('d7es_ckeditor5_input_format')->fields(['id' => 'advanced', 'format' => 'filtered_html'])->execute();
+  db_insert('d7es_ckeditor5_input_format')->fields(['id' => 'full', 'format' => 'full_html'])->execute();
+
+  $defaults['buttons'] = [
+    ['bold','italic','underline','strikethrough','superscript','subscript','blockQuote','removeFormat','specialCharacters'],
+    ['link'],
+    ['heading','style'],
+    ['numberedList','bulletedList','alignment','insertTable'],
+    ['horizontalLine','code','codeBlock'],
+  ];
+
+  $defaults['plugins'] = [
+    'ckeditor5' => [
+      'Heading',
+      'Bold',
+      'Italic',
+      'Underline',
+      'Strikethrough',
+      'BlockQuote',
+      'Link',
+      'List',
+      'Alignment',
+      'Table',
+      'Code',
+      'HorizontalLine',
+      'Superscript',
+      'Subscript',
+      'RemoveFormat',
+      'Code',
+      'CodeBlock',
+      'SpecialCharacters',
+      'GeneralHtmlSupport',
+      'Style',
+    ],
+  ];
+
+  $defaults['height'] = variable_get('d7es_ckeditor5_height', '300px');
+
+  db_insert('d7es_ckeditor5_settings')->fields(['id' => 'advanced', 'name' => 'Advanced', 'settings' => serialize($defaults)])->execute();
+  db_insert('d7es_ckeditor5_settings')->fields(['id' => 'full', 'name' => 'Full', 'settings' => serialize($defaults)])->execute();
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+/**
+ * Implements hook_schema().
+ */
+function d7es_ckeditor5_schema() {
+  $schema['d7es_ckeditor5_settings'] = [
+    'description' => 'Stores CKEditor5 profile settings',
+    'fields' => [
+      'id' => [
+        'type' => 'varchar',
+        'not null' => TRUE,
+        'default' => '',
+        'length' => 128,
+        'description' => 'ID of the CKEditor5 profile',
+      ],
+      'name' => [
+        'type' => 'varchar',
+        'not null' => TRUE,
+        'default' => '',
+        'length' => 128,
+        'description' => 'Name of the CKEditor5 profile',
+      ],
+      'settings' => [
+        'type' => 'text',
+        'description' => 'Profile settings',
+      ],
+    ],
+    'primary key' => ['id']
+  ];
+  $schema['d7es_ckeditor5_input_format'] = [
+    'description' => 'Stores CKEditor5 input format assignments',
+    'fields' => [
+      'id' => [
+        'type' => 'varchar',
+        'not null' => TRUE,
+        'default' => '',
+        'length' => 128,
+        'description' => 'ID of the CKEditor5 role',
+      ],
+      'format' => [
+        'type' => 'varchar',
+        'not null' => TRUE,
+        'default' => '',
+        'length' => 128,
+        'description' => 'Drupal filter format ID',
+      ]
+    ],
+    'primary key' => ['id', 'format'],
+  ];
+
+  return $schema;
+}

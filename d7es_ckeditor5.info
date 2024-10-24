@@ -1,5 +1,7 @@
-name           = d7es CKEditor5
-description    = "Enables CKEditor (WYSIWYG HTML editor) 5 for use instead of plain text fields."
-core           = 7.x
-package        = User interface
+name = d7es CKEditor5
+description = "Enables CKEditor (WYSIWYG HTML editor) 5 for use instead of plain text fields."
+core = 7.x
+package = User interface
 dependencies[] = libraries
+dependencies[] = psr0
+registry_autoload[] = PSR-4
