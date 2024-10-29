@@ -7,9 +7,12 @@ use Drupal\d7es_ckeditor5\Profile;
  *
  * @return array
  */
-function d7es_ckeditor5_load_plugins(): array {
-  $plugins = module_invoke_all('d7es_ckeditor5_plugins');
-  drupal_alter('d7es_ckeditor5_plugins', $plugins);
+function d7es_ckeditor5_plugins(): array {
+  $plugins = &drupal_static(__FUNCTION__, []);
+  if (!$plugins) {
+    $plugins = module_invoke_all('d7es_ckeditor5_plugins');
+    drupal_alter('d7es_ckeditor5_plugins', $plugins);
+  }
   return $plugins;
 }
 
@@ -105,10 +108,13 @@ function d7es_ckeditor5_pre_render_text_format($element): array {
   ]];
 
   // Extra libraries.
-  $plugins = d7es_ckeditor5_load_plugins();
+  $plugins = d7es_ckeditor5_plugins();
   if ($plugins) {
-    foreach ($plugins as $plugin) {
-      $importmaps['imports'][$plugin['name']] = url($plugin['path']  . '/plugin.js', ['absolute' => TRUE]);
+    foreach ($plugins as $key => $plugin) {
+      [$module] = explode('.', $key);
+      if (!isset($importmaps['imports'][$module])) {
+        $importmaps['imports'][$module] = url($plugin['path'], ['absolute' => TRUE]);
+      }
     }
   }
   $importmaps_content = json_encode($importmaps, JSON_UNESCAPED_SLASHES);
@@ -179,11 +185,222 @@ function d7es_ckeditor5_attach_module($path) {
  * Implements hook_ckeditor5_plugins().
  */
 function d7es_ckeditor5_d7es_ckeditor5_plugins(): array {
-  $plugins['Note'] = [
-    'name' => 'Note',
+  $plugins['ckeditor5.Heading'] = [
+    'desc' => t('Heading plugin.'),
+    'buttons' => [
+      'heading' => [
+        'label' => t('Heading'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Bold'] = [
+    'desc' => t('Bold plugin.'),
+    'buttons' => [
+      'bold' => [
+        'label' => t('Bold'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Italic'] = [
+    'desc' => t('Italic plugin.'),
+    'buttons' => [
+      'italic' => [
+        'label' => t('Italic'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Underline'] = [
+    'desc' => t('Underline plugin.'),
+    'buttons' => [
+      'underline' => [
+        'label' => t('Underline'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Strikethrough'] = [
+    'desc' => t('Strikethrough plugin.'),
+    'buttons' => [
+      'Strikethrough' => [
+        'label' => t('Strikethrough'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Subscript'] = [
+    'desc' => t('Subscript plugin.'),
+    'buttons' => [
+      'subscript' => [
+        'label' => t('Subscript'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Superscript'] = [
+    'desc' => t('Superscript plugin.'),
+    'buttons' => [
+      'superscript' => [
+        'label' => t('Superscript'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Indent'] = [
+    'desc' => t('Indent plugin.'),
+    'buttons' => [
+      'indent' => [
+        'label' => t('Indent'),
+      ],
+      'outdent' => [
+        'label' => t('Outdent'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Code'] = [
+    'desc' => t('Code plugin.'),
+    'buttons' => [
+      'code' => [
+        'label' => t('Code'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.CodeBlock'] = [
+    'desc' => t('CodeBlock plugin.'),
+    'buttons' => [
+      'codeBlock' => [
+        'label' => t('CodeBlock'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.BlockQuote'] = [
+    'desc' => t('BlockQuote plugin.'),
+    'buttons' => [
+      'blockQuote' => [
+        'label' => t('BlockQuote'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Link'] = [
+    'desc' => t('Link plugin.'),
+    'buttons' => [
+      'link' => [
+        'label' => t('Link'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.List'] = [
+    'desc' => t('List plugin.'),
+    'buttons' => [
+      'numberedList' => [
+        'label' => t('Numbered list'),
+      ],
+      'bulletedList' => [
+        'label' => t('Bulleted list'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Alignment'] = [
+    'desc' => t('Alignment plugin.'),
+    'buttons' => [
+      'alignment' => [
+        'label' => t('Alignment'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Table'] = [
+    'desc' => t('Table plugin.'),
+    'buttons' => [
+      'insertTable' => [
+        'label' => t('Table'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.HorizontalLine'] = [
+    'desc' => t('HorizontalLine plugin.'),
+    'buttons' => [
+      'horizontalLine' => [
+        'label' => t('HorizontalLine'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.RemoveFormat'] = [
+    'desc' => t('RemoveFormat plugin.'),
+    'buttons' => [
+      'removeFormat' => [
+        'label' => t('RemoveFormat'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Style'] = [
+    'desc' => t('Font Style plugin.'),
+    'buttons' => [
+      'style' => [
+        'label' => t('Style'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.SourceEditing'] = [
+    'desc' => t('SourceEditing plugin.'),
+    'buttons' => [
+      'sourceEditing' => [
+        'label' => t('SourceEditing'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.SpecialCharacters'] = [
+    'desc' => t('SpecialCharacters plugin.'),
+    'buttons' => [
+      'specialCharacters' => [
+        'label' => t('SpecialCharacters'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.Undo'] = [
+    'desc' => t('Undo plugin.'),
+    'buttons' => [
+      'undo' => [
+        'label' => t('Undo'),
+      ],
+      'redo' => [
+        'label' => t('Redo'),
+      ],
+    ],
+  ];
+
+  $plugins['ckeditor5.ShowBlocks'] = [
+    'desc' => t('ShowBlocks plugin.'),
+    'buttons' => [
+      'showBlocks' => [
+        'label' => t('ShowBlocks'),
+      ],
+    ],
+  ];
+
+  // Custom plugins.
+  $plugins['note.Note'] = [
     'desc' => t('Note CKEditor5 plugin.'),
-    'path' => drupal_get_path('module', 'd7es_ckeditor5') . '/plugins/note',
-    'button' => 'note',
+    'path' => drupal_get_path('module', 'd7es_ckeditor5') . '/plugins/note/plugin.js',
+    'buttons' => [
+      'note' => [
+        'label' => t('Note'),
+      ],
+    ],
   ];
 
   return $plugins;

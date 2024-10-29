@@ -16,19 +16,48 @@ function d7es_ckeditor5_configuration_form($form, $form_state) {
   if (!empty($profiles)) {
     foreach ($profiles as $profile_id) {
       $profile = new Profile($profile_id);
+      $configuration = $profile->getConfiguration();
+      $formats = filter_formats();
+      $profile_formats = $profile->getFormats();
 
       $form['profiles'][$profile->getID()]['settings'] = [
         '#type' => 'textarea',
         '#default_value' => drupal_json_encode($profile->getConfiguration()),
-        '#title' => $profile->getName(),
+        '#title' => $profile->getID(),
+        '#access' => FALSE,
       ];
 
-      $formats = filter_formats();
-      $profile_formats = $profile->getFormats();
-      if (!empty($formats)) {
-        $form['profiles'][$profile->getID()]['formats'] = [
+      $plugins = d7es_ckeditor5_plugins();
+      if (!empty($plugins)) {
+        $form['profiles'][$profile->getID()] = [
+          '#type' => 'fieldset',
+          '#title' => $profile->getID(),
+          '#collapsed' => TRUE,
+          '#collapsible' => TRUE,
+        ];
+
+        $form['profiles'][$profile->getID()]['buttons'] = [
           '#type' => 'container',
           '#tree' => TRUE,
+        ];
+
+        foreach ($plugins as $key => $definition) {
+          [$module, $plugin] = explode('.', $key);
+          if (!empty($definition['buttons'])) {
+            foreach ($definition['buttons'] as $id => $button) {
+              $form['profiles'][$profile->getID()]['buttons'][$id] = [
+                '#type' => 'checkbox',
+                '#title' => $button['label'],
+                '#return_value' => "$key.$id",
+                '#default_value' => !empty($configuration[$module][$plugin][$id]),
+              ];
+            }
+          }
+        }
+
+        $form['profiles'][$profile->getID()]['formats'] = [
+          '#type' => 'fieldset',
+          '#title' => t('Available formats'),
         ];
 
         foreach ($formats as $format) {
@@ -54,11 +83,31 @@ function d7es_ckeditor5_configuration_form($form, $form_state) {
   return $form;
 }
 
+/**
+ * Configuration form submit handler.
+ *
+ * @param $form
+ *   The form.
+ * @param $form_state
+ *   The form state.
+ *
+ * @return void
+ * @throws \InvalidMergeQueryException
+ */
 function d7es_ckeditor5_configuration_form_submit($form, $form_state) {
   foreach ($form_state['values']['profiles'] as $id => $conf) {
+    $settings = [];
+    if (!empty($conf['buttons'])) {
+      foreach ($conf['buttons'] as $value) {
+        if ($value) {
+          [$module, $plugin, $button] = explode('.', $value);
+          $settings[$module][$plugin][$button] = TRUE;
+        }
+      }
+    }
+
     $profile = new Profile($id);
-    $serialized = json_decode($conf['settings'], JSON_OBJECT_AS_ARRAY);
-    $profile->setConfiguration($serialized);
+    $profile->setConfiguration($settings);
     $profile->save();
 
     if (!empty($conf['formats'])) {
