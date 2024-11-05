@@ -1,4 +1,4 @@
-import { ClassicEditor, SourceEditing, Essentials } from 'ckeditor5';
+import { ClassicEditor, Essentials, Paragraph, GeneralHtmlSupport } from 'ckeditor5';
 
 export const CKEDITOR5 = {
   instances: [],
@@ -7,20 +7,24 @@ export const CKEDITOR5 = {
 /**
  * Async import plugins.
  *
- * @param plugins
- * @returns {Promise<*[]>}
+ * @param settings
+ * @returns {Promise<{buttons: *[], plugins: *[]}>}
  */
-async function importPlugins(plugins) {
-  const importedPlugins = [];
-  const keys = Object.keys(plugins);
-  for (let i = 0; i < keys.length; i++) {
-    const moduleName = keys[i];
+async function importPlugins(settings) {
+  const imported = {
+    plugins: [],
+    buttons: [],
+  };
+  for (const moduleName in settings) {
     const module = await import(moduleName);
-    for (let j = 0; j < plugins[moduleName].length; j++) {
-      importedPlugins.push(module[plugins[moduleName][j]]);
+    for (const plugin in settings[moduleName]) {
+      imported.plugins.push(module[plugin]);
+      for (const button in settings[moduleName][plugin]) {
+        imported.buttons.push(button);
+      }
     }
   }
-  return importedPlugins;
+  return imported;
 }
 
 ((Drupal) => {
@@ -40,15 +44,7 @@ async function importPlugins(plugins) {
         return;
       }
 
-      const toolbar = ['undo', 'redo'];
-      importPlugins(editorSettings.plugins).then(plugins => {
-        editorSettings.buttons.forEach(buttons => {
-          toolbar.push('|');
-          buttons.forEach(button => {
-            toolbar.push(button);
-          });
-        });
-
+      importPlugins(editorSettings).then(imported => {
         ClassicEditor
           .create(element, {
             htmlSupport: {
@@ -61,8 +57,8 @@ async function importPlugins(plugins) {
                 }
               ]
             },
-            plugins: [...plugins, ...[Essentials, SourceEditing]],
-            toolbar: [...toolbar, ...['|', 'sourceEditing']],
+            plugins: [...imported.plugins, ...[Essentials, Paragraph, GeneralHtmlSupport]],
+            toolbar: [...imported.buttons],
             licenseKey: editorSettings?.licenseKey,
           })
           // Set the editor initial height.

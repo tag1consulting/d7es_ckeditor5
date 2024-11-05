@@ -36,22 +36,23 @@ function d7es_ckeditor5_configuration_migrate() {
         $toolbar = trim($toolbar);
         $toolbars_array = drupal_json_decode($toolbar);
         if (!empty($toolbars_array)) {
-          foreach ($toolbars_array as $group => $toolbar_items) {
+          foreach ($toolbars_array as $toolbar_items) {
             if (is_array($toolbar_items)) {
               foreach ($toolbar_items as $toolbar_item) {
                 if (isset($map[$toolbar_item])) {
                   [$plugin, $button] = $map[$toolbar_item];
-                  $configuration['plugins']['ckeditor5'][] = $plugin;
-                  $configuration['buttons'][$group][] = $button;
+                  $configuration['ckeditor5'][$plugin][$button] = TRUE;
                 }
               }
             }
           }
 
-          $configuration['plugins']['ckeditor5'] = array_values(array_unique($configuration['plugins']['ckeditor5']));
-          $configuration['buttons'] = array_values(array_map(fn($group) => array_values(array_unique($group)), $configuration['buttons']));
+          foreach ($configuration['plugins']['ckeditor5'] as $plugin_name => $buttons) {
+            $configuration['plugins']['ckeditor5'][$plugin_name] = array_unique($buttons);
+          }
+
           $ckeditor5_profile = new Profile($id);
-          $ckeditor5_profile->setConfiguration(['name' => $profile->name] + $configuration);
+          $ckeditor5_profile->setConfiguration($configuration);
           $ckeditor5_profile->save();
 
           if (!empty($profile->input_formats)) {

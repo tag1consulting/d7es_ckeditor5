@@ -12,19 +12,9 @@ class Profile implements ProfileInterface {
   protected $id;
 
   /**
-   * @var
-   */
-  protected $name;
-
-  /**
    * @var array|mixed
    */
-  protected $buttons;
-
-  /**
-   * @var array|mixed
-   */
-  protected $plugins;
+  protected $configuration;
 
   protected $formats;
 
@@ -35,10 +25,7 @@ class Profile implements ProfileInterface {
     $this->id = $id;
 
     try {
-      $configuration = $this->load();
-      $this->name = $configuration['name'];
-      $this->buttons = $configuration['buttons'];
-      $this->plugins = $configuration['plugins'];
+      $this->configuration = $this->loadConfiguration();
       $this->formats = $this->getFormats();
     }
     catch (\Exception $e) {
@@ -50,7 +37,7 @@ class Profile implements ProfileInterface {
    * @return array
    * @throws \Exception
    */
-  protected function load(): array {
+  protected function loadConfiguration(): array {
     $conf = db_select('d7es_ckeditor5_settings', 'dcs')
       ->fields('dcs', [])
       ->condition('id', $this->id)
@@ -58,12 +45,7 @@ class Profile implements ProfileInterface {
       ->fetchAssoc();
 
     if (!empty($conf)) {
-      $settings = unserialize($conf['settings']);
-      return [
-        'name' => $conf['name'] ?? NULL,
-        'buttons' => $settings['buttons'] ?? [],
-        'plugins' => $settings['plugins'] ?? [],
-      ];
+      return unserialize($conf['settings']);
     }
 
     return [];
@@ -78,27 +60,21 @@ class Profile implements ProfileInterface {
   }
 
   public function getConfiguration(): array {
-    return [
-      'plugins' => $this->plugins,
-      'buttons' => $this->buttons,
-    ];
+    return $this->configuration;
   }
 
-  public function setConfiguration(array $configuration) {
-    $this->name = $configuration['name'] ?? $this->name ?? NULL;
-    $this->buttons = $configuration['buttons'] ?? $this->buttons ?? [];
-    $this->plugins = $configuration['plugins'] ?? $this->plugins ?? [];
+  public function setConfiguration(array $configuration): void {
+    $this->configuration = $configuration;
   }
 
-  public function save() {
+  public function save(): void {
     try {
-      $conf = $this->getConfiguration();
+      $configuration = $this->getConfiguration();
 
       db_merge('d7es_ckeditor5_settings')
         ->key(array('id' => $this->id))
         ->fields(array(
-          'name' => $this->getName(),
-          'settings' => serialize($conf),
+          'settings' => serialize($configuration),
         ))
         ->execute();
     }
@@ -107,9 +83,5 @@ class Profile implements ProfileInterface {
 
   public function getId(): string {
     return $this->id;
-  }
-
-  public function getName(): string {
-    return $this->name;
   }
 }
